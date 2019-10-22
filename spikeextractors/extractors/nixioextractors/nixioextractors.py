@@ -26,21 +26,17 @@ class NIXIORecordingExtractor(RecordingExtractor):
         {'name': 'file_path', 'type': 'file', 'title': "Path to file"},
     ]
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, traces_name="traces"):
         if not HAVE_NIXIO:
             raise ImportError(missing_nixio_msg)
         RecordingExtractor.__init__(self)
         self._file = nix.File.open(file_path, nix.FileMode.ReadOnly)
         self._load_properties()
+        blk = self._file.blocks[0]
+        self._traces = blk.data_arrays[traces_name]
 
     def __del__(self):
         self._file.close()
-
-    @property
-    def _traces(self):
-        blk = self._file.blocks[0]
-        da = blk.data_arrays["traces"]
-        return da
 
     def get_channel_ids(self):
         da = self._traces
@@ -63,7 +59,13 @@ class NIXIORecordingExtractor(RecordingExtractor):
             channels = np.array([self._traces[cid] for cid in channel_ids])
         else:
             channels = self._traces[:]
+        tdimidx = self._find_temporal_dimension()
         return channels[:, start_frame:end_frame]
+
+    def _find_temporal_dimension():
+        for dim in self._traces.dimensions:
+            if dim.dimension_type in (nix.SampledDimension, nix.RangeDimension):
+                if nix.util.units.scalable
 
     def _load_properties(self):
         traces_md = self._traces.metadata
